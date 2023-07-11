@@ -1,15 +1,14 @@
-@tool
-extends TextureRect
+extends Node
+
+
+signal refresh()
+
 
 ## Use for special actions outside of InputMap. Format is keyboard icon|mouse icon|joypad icon.
 const CUSTOM_ACTIONS = {
 	"move": "WSAD||LeftStick"
 }
 
-enum { KEYBOARD, MOUSE, JOYPAD }
-enum JoypadMode { ADAPTIVE, FORCE_KEYBOARD, FORCE_JOYPAD }
-enum FitMode { CUSTOM, MATCH_WIDTH, MATCH_HEIGHT }
-enum JoypadModel { AUTO, XBOX, XBOX360, DS3, DS4, DUAL_SENSE, JOY_CON }
 
 const MODEL_MAP = {
 	JoypadModel.XBOX: "Xbox",
@@ -20,156 +19,108 @@ const MODEL_MAP = {
 	JoypadModel.JOY_CON: "JoyCon",
 }
 
-## Action name from InputMap or CUSTOM_ACTIONS.
-@export var action_name: StringName = &"":
-	set(action):
-		if action == action_name:
-			return
-		
-		action_name = action
-		refresh()
 
-## Whether a joypad button should be used or keyboard/mouse.
-@export var joypad_mode: JoypadMode = JoypadMode.ADAPTIVE:
-	set(mode):
-		if mode == joypad_mode:
-			return
-		
-		joypad_mode = mode
-		set_process_input(mode == JoypadMode.ADAPTIVE)
-		refresh()
+enum { KEYBOARD, MOUSE, JOYPAD }
+enum JoypadMode { ADAPTIVE, FORCE_KEYBOARD, FORCE_JOYPAD }
+enum JoypadModel { AUTO, XBOX, XBOX360, DS3, DS4, DUAL_SENSE, JOY_CON }
 
-## Controller model for the displayed icon.
-@export var joypad_model: JoypadModel = JoypadModel.AUTO:
-	set(model):
-		if model == joypad_model:
-			return
-		
-		joypad_model = model
-		if model == JoypadModel.AUTO:
-			if not Input.joy_connection_changed.is_connected(on_joy_connection_changed):
-				Input.joy_connection_changed.connect(on_joy_connection_changed)
-		else:
-			if Input.joy_connection_changed.is_connected(on_joy_connection_changed):
-				Input.joy_connection_changed.disconnect(on_joy_connection_changed)
-		
-			_cached_model = ""
-		refresh()
 
-## If using keyboard/mouse icon, this makes mouse preferred if available.
-@export var favor_mouse: bool = true:
-	set(favor):
-		if favor == favor_mouse:
-			return
-		
-		favor_mouse = favor
-		refresh()
-
-## Use to control the size of icon inside a container.
-@export var fit_mode: FitMode = FitMode.MATCH_WIDTH:
-	set(mode):
-		if mode == fit_mode:
-			return
-		
-		fit_mode = mode
-		match fit_mode:
-			FitMode.MATCH_WIDTH:
-				expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-				stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			FitMode.MATCH_HEIGHT:
-				expand_mode = TextureRect.EXPAND_FIT_HEIGHT_PROPORTIONAL
-				stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-
+var _cached_model:String
 var _base_path: String
-var _use_joypad: bool
-var _pending_refresh: bool
-var _cached_model: String
+var _use_joypad:bool
 
-func _init():
-	add_to_group(&"action_icons")
-	texture = load("res://addons/ActionIcon/Keyboard/Blank.png")
+static var instance:Node
+
+
+func _init() -> void:
+	instance = self
 	_base_path = get_script().resource_path.get_base_dir()
-
-func _ready() -> void:
 	_use_joypad = not Input.get_connected_joypads().is_empty()
-	
-	if joypad_model == JoypadModel.AUTO:
+	if not Input.joy_connection_changed.is_connected(on_joy_connection_changed):
 		Input.joy_connection_changed.connect(on_joy_connection_changed)
-	
-	set_process_input(joypad_mode == JoypadMode.ADAPTIVE)
-	
-	if action_name == &"":
-		return
-	
-	assert(InputMap.has_action(action_name) or action_name in CUSTOM_ACTIONS, str("Action \"", action_name, "\" does not exist in the InputMap nor CUSTOM_ACTIONS."))
-	
-	refresh()
 
-## Forces icon refresh. Useful when you change controls.
-func refresh():
-	if _pending_refresh:
-		return
-	
-	_pending_refresh = true
-	_refresh.call_deferred()
 
-func _refresh():
-	if Engine.is_editor_hint() or not is_visible_in_tree():
-		return
-	
-	_pending_refresh = false
+func on_joy_connection_changed(_device: int, connected: bool):
+	if connected:
+		_cached_model = ""
+		refresh.emit()
+
+
+func _input(event: InputEvent) -> void:
+	if _use_joypad and (event is InputEventKey or event is InputEventMouseButton or event is InputEventMouseMotion):
+		_use_joypad = false
+		refresh.emit()
+	elif not _use_joypad and (event is InputEventJoypadButton or event is InputEventJoypadMotion):
+		_use_joypad = true
+		refresh.emit()
+
+
+func pick_texture(action_name:String, joypad_mode:JoypadMode, joypad_model:JoypadModel, favor_mouse:bool) -> Texture2D:
 	var is_joypad := false
-	if joypad_mode == JoypadMode.FORCE_JOYPAD or (joypad_mode == JoypadMode.ADAPTIVE and _use_joypad):
-		is_joypad = true
-	
+	match joypad_mode:
+		JoypadMode.ADAPTIVE:
+			is_joypad = _use_joypad
+		JoypadMode.FORCE_JOYPAD:
+			is_joypad = true
+		JoypadMode.FORCE_KEYBOARD:
+			is_joypad = false
+
+	var result:Texture2D = null
 	if action_name in CUSTOM_ACTIONS:
 		var image_list: PackedStringArray = CUSTOM_ACTIONS[action_name].split("|")
 		assert(image_list.size() >= 3, "Need more |")
 		
 		if is_joypad and not image_list[JOYPAD].is_empty():
-			texture = get_image(JOYPAD, "%s/%s" % [get_joypad_model(0), image_list[JOYPAD]])
+			result = get_image(JOYPAD, "%s/%s" % [get_joypad_model_name(0, joypad_model), image_list[JOYPAD]])
 		elif not is_joypad:
 			if (favor_mouse or image_list[KEYBOARD].is_empty()) and not image_list[MOUSE].is_empty():
-				texture = get_image(MOUSE, image_list[MOUSE])
+				result = get_image(MOUSE, image_list[MOUSE])
 			elif image_list[KEYBOARD]:
-				texture = get_image(KEYBOARD, image_list[KEYBOARD])
-		return
-	
-	var keyboard := -1
-	var mouse := -1
-	var joypad := -1
-	var joypad_axis := -1
-	var joypad_axis_value: float
-	var joypad_id: int
-	
-	for event in InputMap.action_get_events(action_name):
-		if event is InputEventKey and keyboard == -1:
-			if event.keycode == 0:
-				keyboard = event.physical_keycode
-			else:
-				keyboard = event.keycode
-		elif event is InputEventMouseButton and mouse == -1:
-			mouse = event.button_index
-		elif event is InputEventJoypadButton and joypad == -1:
-			joypad = event.button_index
-			joypad_id = event.device
-		elif event is InputEventJoypadMotion and joypad_axis == -1:
-			joypad_axis = event.axis
-			joypad_axis_value = event.axis_value
-			joypad_id = event.device
-	
-	if is_joypad and joypad >= 0:
-		texture = get_joypad(joypad, joypad_id)
-	elif is_joypad and joypad_axis >= 0:
-		texture = get_joypad_axis(joypad_axis, joypad_axis_value, joypad_id)
-	elif not is_joypad:
-		if mouse >= 0 and (favor_mouse or keyboard < 0):
-			texture = get_mouse(mouse)
-		elif keyboard >= 0:
-			texture = get_keyboard(keyboard)
-	
-	if not texture and action_name != &"":
-		push_error("No icon for action: %s" % action_name)
+				result = get_image(KEYBOARD, image_list[KEYBOARD])
+
+	else:
+		var keyboard := -1
+		var mouse := -1
+		var joypad := -1
+		var joypad_axis := -1
+		var joypad_axis_value: float
+		var joypad_id: int
+
+		for event in InputMap.action_get_events(action_name):
+			if event is InputEventKey and keyboard == -1:
+				if event.keycode == 0:
+					keyboard = event.physical_keycode
+				else:
+					keyboard = event.keycode
+
+			elif event is InputEventMouseButton and mouse == -1:
+				mouse = event.button_index
+			elif event is InputEventJoypadButton and joypad == -1:
+				joypad = event.button_index
+				joypad_id = event.device
+			elif event is InputEventJoypadMotion and joypad_axis == -1:
+				joypad_axis = event.axis
+				joypad_axis_value = event.axis_value
+				joypad_id = event.device
+
+		if _use_joypad:
+			if joypad >= 0:
+				result = get_joypad(joypad, joypad_id, joypad_model)
+			elif joypad_axis >= 0:
+				result = get_joypad_axis(joypad_axis, joypad_axis_value, joypad_id, joypad_model)
+
+		if result == null:
+			if mouse >= 0 and (favor_mouse or keyboard < 0):
+				result = get_mouse(mouse)
+
+			if result == null and keyboard >= 0:
+				result = get_keyboard(keyboard)
+
+	if result == null:
+		result = load("res://addons/ActionIcon/Keyboard/Blank.png")
+
+	return result
+
 
 func get_keyboard(key: int) -> Texture2D:
 	match key:
@@ -333,13 +284,15 @@ func get_keyboard(key: int) -> Texture2D:
 			return get_image(KEYBOARD, "End")
 		KEY_PAGEDOWN:
 			return get_image(KEYBOARD, "PageDown")
+
 	return null
 
-func get_joypad_model(device: int) -> String:
+
+func get_joypad_model_name(device: int, joypad_model:JoypadModel) -> String:
 	if not _cached_model.is_empty():
 		return _cached_model
-	
-	var model := "Xbox"
+
+	var model := ""
 	if joypad_model == JoypadModel.AUTO:
 		var device_name := Input.get_joy_name(maxi(device, 0))
 		if device_name.contains("Xbox 360"):
@@ -352,85 +305,96 @@ func get_joypad_model(device: int) -> String:
 			model = "DualSense"
 		elif device_name.contains("Joy-Con") or device_name.contains("Joy Con"):
 			model = "JoyCon"
+		else:
+			model = "Xbox"
 	else:
 		model = MODEL_MAP[joypad_model]
-	
+
 	_cached_model = model
 	return model
 
-func get_joypad(button: int, device: int) -> Texture2D:
-	var model := get_joypad_model(device) + "/"
-	
+
+func get_joypad(button: int, device: int, joypad_model:JoypadModel) -> Texture2D:
+	var folder := get_joypad_model_name(device, joypad_model) + "/"
+
 	match button:
 		JOY_BUTTON_A:
-			return get_image(JOYPAD, model + "A")
+			return get_image(JOYPAD, folder + "A")
 		JOY_BUTTON_B:
-			return get_image(JOYPAD, model + "B")
+			return get_image(JOYPAD, folder + "B")
 		JOY_BUTTON_X:
-			return get_image(JOYPAD, model + "X")
+			return get_image(JOYPAD, folder + "X")
 		JOY_BUTTON_Y:
-			return get_image(JOYPAD, model + "Y")
+			return get_image(JOYPAD, folder + "Y")
 		JOY_BUTTON_LEFT_SHOULDER:
-			return get_image(JOYPAD, model + "LB")
+			return get_image(JOYPAD, folder + "LB")
 		JOY_BUTTON_RIGHT_SHOULDER:
-			return get_image(JOYPAD, model + "RB")
+			return get_image(JOYPAD, folder + "RB")
 		JOY_BUTTON_LEFT_STICK:
-			return get_image(JOYPAD, model + "L")
+			return get_image(JOYPAD, folder + "L")
 		JOY_BUTTON_RIGHT_STICK:
-			return get_image(JOYPAD, model + "R")
+			return get_image(JOYPAD, folder + "R")
 		JOY_BUTTON_BACK:
-			return get_image(JOYPAD, model + "Select")
+			return get_image(JOYPAD, folder + "Select")
 		JOY_BUTTON_START:
-			return get_image(JOYPAD, model + "Start")
+			return get_image(JOYPAD, folder + "Start")
 		JOY_BUTTON_DPAD_UP:
-			return get_image(JOYPAD, model + "DPadUp")
+			return get_image(JOYPAD, folder + "DPadUp")
 		JOY_BUTTON_DPAD_DOWN:
-			return get_image(JOYPAD, model + "DPadDown")
+			return get_image(JOYPAD, folder + "DPadDown")
 		JOY_BUTTON_DPAD_LEFT:
-			return get_image(JOYPAD, model + "DPadLeft")
+			return get_image(JOYPAD, folder + "DPadLeft")
 		JOY_BUTTON_DPAD_RIGHT:
-			return get_image(JOYPAD, model + "DPadRight")
+			return get_image(JOYPAD, folder + "DPadRight")
 		JOY_BUTTON_MISC1:
-			return get_image(JOYPAD, model + "Share")
+			return get_image(JOYPAD, folder + "Share")
+
 	return null
 
-func get_joypad_axis(axis: int, value: float, device: int) -> Texture2D:
-	var model := get_joypad_model(device) + "/"
-	
+
+func get_joypad_axis(axis: int, value: float, device: int, joypad_model:JoypadModel) -> Texture2D:
+	var folder := get_joypad_model_name(device, joypad_model) + "/"
+
 	match axis:
 		JOY_AXIS_LEFT_X:
 			if value < 0:
-				return get_image(JOYPAD, model + "LeftStickLeft")
+				return get_image(JOYPAD, folder + "LeftStickLeft")
 			elif value > 0:
-				return get_image(JOYPAD, model + "LeftStickRight")
+				return get_image(JOYPAD, folder + "LeftStickRight")
 			else:
-				return get_image(JOYPAD, model + "LeftStick")
+				return get_image(JOYPAD, folder + "LeftStick")
+
 		JOY_AXIS_LEFT_Y:
 			if value < 0:
-				return get_image(JOYPAD, model + "LeftStickUp")
+				return get_image(JOYPAD, folder + "LeftStickUp")
 			elif value > 0:
-				return get_image(JOYPAD, model + "LeftStickDown")
+				return get_image(JOYPAD, folder + "LeftStickDown")
 			else:
-				return get_image(JOYPAD, model + "LeftStick")
+				return get_image(JOYPAD, folder + "LeftStick")
+
 		JOY_AXIS_RIGHT_X:
 			if value < 0:
-				return get_image(JOYPAD, model + "RightStickLeft")
+				return get_image(JOYPAD, folder + "RightStickLeft")
 			elif value > 0:
-				return get_image(JOYPAD, model + "RightStickRight")
+				return get_image(JOYPAD, folder + "RightStickRight")
 			else:
-				return get_image(JOYPAD, model + "RightStick")
+				return get_image(JOYPAD, folder + "RightStick")
+
 		JOY_AXIS_RIGHT_Y:
 			if value < 0:
-				return get_image(JOYPAD, model + "RightStickUp")
+				return get_image(JOYPAD, folder + "RightStickUp")
 			elif value > 0:
-				return get_image(JOYPAD, model + "RightStickDown")
+				return get_image(JOYPAD, folder + "RightStickDown")
 			else:
-				return get_image(JOYPAD, model + "RightStick")
+				return get_image(JOYPAD, folder + "RightStick")
+
 		JOY_AXIS_TRIGGER_LEFT:
-			return get_image(JOYPAD, model + "LT")
+			return get_image(JOYPAD, folder + "LT")
 		JOY_AXIS_TRIGGER_RIGHT:
-			return get_image(JOYPAD, model + "RT")
+			return get_image(JOYPAD, folder + "RT")
+
 	return null
+
 
 func get_mouse(button: int) -> Texture2D:
 	match button:
@@ -448,7 +412,9 @@ func get_mouse(button: int) -> Texture2D:
 			return get_image(MOUSE, "WheelRight")
 		MOUSE_BUTTON_WHEEL_UP:
 			return get_image(MOUSE, "WheelUp")
+
 	return null
+
 
 func get_image(type: int, image: String) -> Texture2D:
 	match type:
@@ -458,25 +424,5 @@ func get_image(type: int, image: String) -> Texture2D:
 			return load(_base_path.path_join("Mouse").path_join(image) + ".png") as Texture
 		JOYPAD:
 			return load(_base_path.path_join("Joypad").path_join(image) + ".png") as Texture
+
 	return null
-
-func on_joy_connection_changed(device: int, connected: bool):
-	if connected:
-		_cached_model = ""
-		refresh()
-
-func _input(event: InputEvent) -> void:
-	if not is_visible_in_tree():
-		return
-	
-	if _use_joypad and (event is InputEventKey or event is InputEventMouseButton or event is InputEventMouseMotion):
-		_use_joypad = false
-		refresh()
-	elif not _use_joypad and (event is InputEventJoypadButton or event is InputEventJoypadMotion):
-		_use_joypad = true
-		refresh()
-
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_VISIBILITY_CHANGED:
-		if is_visible_in_tree() and _pending_refresh:
-			_refresh()
