@@ -69,7 +69,8 @@ var _action_texture_picker:ActionTexturePicker
 
 
 func _init() -> void:
-	_texture = load("res://addons/ActionIcon/Keyboard/Blank.png")
+	var base_path := preload("plugin.gd").base_path
+	_texture = load(base_path + "/Keyboard/Blank.png") as Texture2D
 	_action_texture_picker = ActionTexturePicker.instance as ActionTexturePicker
 	refresh()
 

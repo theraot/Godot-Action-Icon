@@ -35,7 +35,7 @@ static var instance:Node
 
 func _init() -> void:
 	instance = self
-	_base_path = get_script().resource_path.get_base_dir()
+	_base_path = preload("plugin.gd").base_path
 	_use_joypad = not Input.get_connected_joypads().is_empty()
 	if not Input.joy_connection_changed.is_connected(on_joy_connection_changed):
 		Input.joy_connection_changed.connect(on_joy_connection_changed)
@@ -88,21 +88,27 @@ func pick_texture(action_name:String, joypad_mode:JoypadMode, joypad_model:Joypa
 		var joypad_id: int
 
 		for event in InputMap.action_get_events(action_name):
-			if event is InputEventKey and keyboard == -1:
-				if event.keycode == 0:
-					keyboard = event.physical_keycode
+			var key_event := event as InputEventKey
+			if key_event != null and keyboard == -1:
+				if key_event.keycode == 0:
+					keyboard = key_event.physical_keycode
 				else:
-					keyboard = event.keycode
+					keyboard = key_event.keycode
 
-			elif event is InputEventMouseButton and mouse == -1:
-				mouse = event.button_index
-			elif event is InputEventJoypadButton and joypad == -1:
-				joypad = event.button_index
-				joypad_id = event.device
-			elif event is InputEventJoypadMotion and joypad_axis == -1:
-				joypad_axis = event.axis
-				joypad_axis_value = event.axis_value
-				joypad_id = event.device
+			var mouse_button_event := event as InputEventMouseButton
+			if mouse_button_event != null and mouse == -1:
+				mouse = mouse_button_event.button_index
+
+			var joypad_button_event := event as InputEventJoypadButton
+			if joypad_button_event != null and joypad == -1:
+				joypad = joypad_button_event.button_index
+				joypad_id = joypad_button_event.device
+
+			var joypad_motion_event := event as InputEventJoypadMotion
+			if joypad_motion_event != null and joypad_axis == -1:
+				joypad_axis = joypad_motion_event.axis
+				joypad_axis_value = joypad_motion_event.axis_value
+				joypad_id = joypad_motion_event.device
 
 		if is_joypad:
 			if joypad >= 0:
@@ -118,7 +124,7 @@ func pick_texture(action_name:String, joypad_mode:JoypadMode, joypad_model:Joypa
 				result = get_keyboard(keyboard)
 
 	if result == null:
-		result = load("res://addons/ActionIcon/Keyboard/Blank.png")
+		result = load(_base_path + "/Keyboard/Blank.png") as Texture2D
 
 	return result
 
@@ -309,7 +315,7 @@ func get_joypad_model_name(device: int, joypad_model:JoypadModel) -> String:
 		else:
 			model = "Xbox"
 	else:
-		model = MODEL_MAP[joypad_model]
+		model = str(MODEL_MAP[joypad_model])
 
 	_cached_model = model
 	return model
@@ -420,10 +426,10 @@ func get_mouse(button: int) -> Texture2D:
 func get_image(type: int, image: String) -> Texture2D:
 	match type:
 		KEYBOARD:
-			return load(_base_path.path_join("Keyboard").path_join(image) + ".png") as Texture
+			return load(_base_path.path_join("Keyboard").path_join(image) + ".png") as Texture2D
 		MOUSE:
-			return load(_base_path.path_join("Mouse").path_join(image) + ".png") as Texture
+			return load(_base_path.path_join("Mouse").path_join(image) + ".png") as Texture2D
 		JOYPAD:
-			return load(_base_path.path_join("Joypad").path_join(image) + ".png") as Texture
+			return load(_base_path.path_join("Joypad").path_join(image) + ".png") as Texture2D
 
 	return null
