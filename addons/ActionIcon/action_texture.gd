@@ -7,7 +7,7 @@ const ActionTexturePicker := preload("action_texture_picker.gd")
 
 
 ## Action name from InputMap.
-@export var action_name: StringName = &"":
+var action_name: StringName = &"":
 	set(mod_value):
 		if action_name == mod_value:
 			return
@@ -17,7 +17,7 @@ const ActionTexturePicker := preload("action_texture_picker.gd")
 
 
 ## Whether a joypad button should be used or keyboard/mouse.
-@export var joypad_mode: ActionTexturePicker.JoypadMode = ActionTexturePicker.JoypadMode.ADAPTIVE:
+var joypad_mode: ActionTexturePicker.JoypadMode = ActionTexturePicker.JoypadMode.ADAPTIVE:
 	set(mod_value):
 		if joypad_mode == mod_value:
 			return
@@ -34,7 +34,7 @@ const ActionTexturePicker := preload("action_texture_picker.gd")
 
 
 ## Controller model for the displayed icon.
-@export var joypad_model: ActionTexturePicker.JoypadModel = ActionTexturePicker.JoypadModel.AUTO:
+var joypad_model: ActionTexturePicker.JoypadModel = ActionTexturePicker.JoypadModel.AUTO:
 	set(mod_value):
 		if joypad_model == mod_value:
 			return
@@ -44,7 +44,7 @@ const ActionTexturePicker := preload("action_texture_picker.gd")
 
 
 ## If using keyboard/mouse icon, this makes mouse preferred if available.
-@export var favor_mouse: bool = true:
+var favor_mouse: bool = true:
 	set(mod_value):
 		if favor_mouse == mod_value:
 			return
@@ -62,6 +62,45 @@ func _init() -> void:
 	_set_textures([load(base_path + "/Keyboard/Blank.png") as Texture2D])
 	_action_texture_picker = ActionTexturePicker.instance as ActionTexturePicker
 	refresh()
+
+
+func _get_property_list() -> Array[Dictionary]:
+	var list_of_actions:String = ""
+	for action in InputMap.get_actions():
+		if not list_of_actions.is_empty():
+			list_of_actions += ","
+
+		list_of_actions += str(action)
+
+	return [
+		{
+			"name": "action_name",
+			"type": TYPE_STRING_NAME,
+			"hint": PROPERTY_HINT_ENUM_SUGGESTION,
+			"hint_string": list_of_actions,
+			"usage": PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_STORAGE
+		},
+		{
+			"name": "joypad_mode",
+			"type": TYPE_INT,
+			"hint": PROPERTY_HINT_ENUM,
+			"hint_string": "Adaptive:0,Force Keyboard:1,Force Joypad:2",
+			"usage": PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_STORAGE
+		},
+		{
+			"name": "joypad_model",
+			"type": TYPE_INT,
+			"hint": PROPERTY_HINT_ENUM,
+			"hint_string": "Auto:0,Xbox:1,Xbox 360:2,Ds 3:3,Ds 4:4,Dual Sense:5,Joy Con:6",
+			"usage": PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_STORAGE
+		},
+		{
+			"name": "favor_mouse",
+			"type": TYPE_BOOL,
+			"hint_string": "bool",
+			"usage": PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_STORAGE
+		}
+	]
 
 
 func refresh() -> void:
