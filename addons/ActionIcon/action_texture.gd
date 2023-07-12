@@ -16,7 +16,6 @@ const ActionTexturePicker := preload("action_texture_picker.gd")
 		refresh()
 
 
-
 ## Whether a joypad button should be used or keyboard/mouse.
 @export var joypad_mode: ActionTexturePicker.JoypadMode = ActionTexturePicker.JoypadMode.ADAPTIVE:
 	set(mod_value):
@@ -24,6 +23,13 @@ const ActionTexturePicker := preload("action_texture_picker.gd")
 			return
 		
 		joypad_mode = mod_value
+		if joypad_mode == ActionTexturePicker.JoypadMode.ADAPTIVE:
+			if not _action_texture_picker.refresh.is_connected(refresh):
+				_action_texture_picker.refresh.connect(refresh)
+		else:
+			if _action_texture_picker.refresh.is_connected(refresh):
+				_action_texture_picker.refresh.disconnect(refresh)
+
 		refresh()
 
 
@@ -62,12 +68,6 @@ func refresh() -> void:
 	if is_instance_valid(_action_texture_picker):
 		var textures := _action_texture_picker.pick_texture(action_name, joypad_mode, joypad_model, favor_mouse)
 		_set_textures(textures)
-		if joypad_mode == ActionTexturePicker.JoypadMode.ADAPTIVE:
-			if not _action_texture_picker.refresh.is_connected(refresh):
-				_action_texture_picker.refresh.connect(refresh)
-		else:
-			if _action_texture_picker.refresh.is_connected(refresh):
-				_action_texture_picker.refresh.disconnect(refresh)
 
 
 func _set_textures(textures:Array[Texture2D]) -> void:
