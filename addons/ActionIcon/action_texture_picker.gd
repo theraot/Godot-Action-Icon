@@ -41,18 +41,18 @@ func _init() -> void:
 		Input.joy_connection_changed.connect(on_joy_connection_changed)
 
 
-func on_joy_connection_changed(_device: int, connected: bool):
-	if connected:
-		_cached_model = ""
-		refresh.emit()
-
-
 func _input(event: InputEvent) -> void:
 	if _use_joypad and (event is InputEventKey or event is InputEventMouseButton or event is InputEventMouseMotion):
 		_use_joypad = false
 		refresh.emit()
 	elif not _use_joypad and (event is InputEventJoypadButton or event is InputEventJoypadMotion):
 		_use_joypad = true
+		refresh.emit()
+
+
+func on_joy_connection_changed(_device: int, connected: bool):
+	if connected:
+		_cached_model = ""
 		refresh.emit()
 
 
