@@ -66,6 +66,7 @@ func _init() -> void:
 
 func _get_property_list() -> Array[Dictionary]:
 	var list_of_actions:String = ""
+	InputMap.load_from_project_settings()
 	for action in InputMap.get_actions():
 		if not list_of_actions.is_empty():
 			list_of_actions += ","
