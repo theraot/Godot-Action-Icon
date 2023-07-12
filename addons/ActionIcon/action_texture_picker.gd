@@ -104,13 +104,13 @@ func pick_texture(action_name:String, joypad_mode:JoypadMode, joypad_model:Joypa
 				joypad_axis_value = event.axis_value
 				joypad_id = event.device
 
-		if _use_joypad:
+		if is_joypad:
 			if joypad >= 0:
 				result = get_joypad(joypad, joypad_id, joypad_model)
 			elif joypad_axis >= 0:
 				result = get_joypad_axis(joypad_axis, joypad_axis_value, joypad_id, joypad_model)
 
-		if result == null:
+		if result == null and joypad_mode != JoypadMode.FORCE_JOYPAD:
 			if mouse >= 0 and (favor_mouse or keyboard < 0):
 				result = get_mouse(mouse)
 
