@@ -48,39 +48,45 @@ const ActionTexturePicker := preload("action_texture_picker.gd")
 
 
 var _image:Image
-var _texture:Texture2D:
-	set(mod_value):
-		if _texture == mod_value:
-			return
-
-		_texture = mod_value
-		var size := Vector2i(_texture.get_size())
-		if _image == null:
-			_image = Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
-		elif _image.get_size() != size:
-			_image.resize(size.x, size.y, Image.INTERPOLATE_NEAREST)
-
-		var rect := Rect2i(Vector2.ZERO, size)
-		_image.blit_rect(_texture.get_image(), rect, Vector2i.ZERO)
-		set_image(_image)
-
-
 var _action_texture_picker:ActionTexturePicker
 
 
 func _init() -> void:
 	var base_path := preload("plugin.gd").base_path
-	_texture = load(base_path + "/Keyboard/Blank.png") as Texture2D
+	_set_textures([load(base_path + "/Keyboard/Blank.png") as Texture2D])
 	_action_texture_picker = ActionTexturePicker.instance as ActionTexturePicker
 	refresh()
 
 
 func refresh() -> void:
 	if is_instance_valid(_action_texture_picker):
-		_texture = _action_texture_picker.pick_texture(action_name, joypad_mode, joypad_model, favor_mouse)
+		var textures := _action_texture_picker.pick_texture(action_name, joypad_mode, joypad_model, favor_mouse)
+		_set_textures(textures)
 		if joypad_mode == ActionTexturePicker.JoypadMode.ADAPTIVE:
 			if not _action_texture_picker.refresh.is_connected(refresh):
 				_action_texture_picker.refresh.connect(refresh)
 		else:
 			if _action_texture_picker.refresh.is_connected(refresh):
 				_action_texture_picker.refresh.disconnect(refresh)
+
+
+func _set_textures(textures:Array[Texture2D]) -> void:
+	var size := Vector2i.ZERO
+	for texture in textures:
+		var texture_size := texture.get_size()
+		size.x += int(texture_size.x)
+		size.y = maxi(size.y, int(texture_size.y))
+
+	if _image == null:
+		_image = Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
+	elif _image.get_size() != size:
+		_image.crop(size.x, size.y)
+
+	var offset := Vector2i.ZERO
+	for texture in textures:
+		var texture_size := texture.get_size()
+		var rect := Rect2i(Vector2i.ZERO, texture_size)
+		_image.blit_rect(texture.get_image(), rect, offset)
+		offset += Vector2i(int(texture_size.x), 0)
+
+	set_image(_image)

@@ -56,7 +56,7 @@ func on_joy_connection_changed(_device: int, connected: bool):
 		refresh.emit()
 
 
-func pick_texture(action_name:String, joypad_mode:JoypadMode, joypad_model:JoypadModel, favor_mouse:bool) -> Texture2D:
+func pick_texture(action_name:String, joypad_mode:JoypadMode, joypad_model:JoypadModel, favor_mouse:bool) -> Array[Texture2D]:
 	var is_joypad := false
 	match joypad_mode:
 		JoypadMode.ADAPTIVE:
@@ -81,6 +81,7 @@ func pick_texture(action_name:String, joypad_mode:JoypadMode, joypad_model:Joypa
 
 	else:
 		var keyboard := -1
+		var modifiers:Array[int] = []
 		var mouse := -1
 		var joypad := -1
 		var joypad_axis := -1
@@ -88,27 +89,43 @@ func pick_texture(action_name:String, joypad_mode:JoypadMode, joypad_model:Joypa
 		var joypad_id: int
 
 		for event in InputMap.action_get_events(action_name):
-			var key_event := event as InputEventKey
-			if key_event != null and keyboard == -1:
-				if key_event.keycode == 0:
-					keyboard = key_event.physical_keycode
-				else:
-					keyboard = key_event.keycode
+			if keyboard == -1:
+				var key_event := event as InputEventKey
+				if key_event != null:
+					if key_event.alt_pressed:
+						modifiers.append(KEY_ALT)
 
-			var mouse_button_event := event as InputEventMouseButton
-			if mouse_button_event != null and mouse == -1:
-				mouse = mouse_button_event.button_index
+					if key_event.ctrl_pressed:
+						modifiers.append(KEY_CTRL)
 
-			var joypad_button_event := event as InputEventJoypadButton
-			if joypad_button_event != null and joypad == -1:
-				joypad = joypad_button_event.button_index
-				joypad_id = joypad_button_event.device
+					if key_event.shift_pressed:
+						modifiers.append(KEY_SHIFT)
 
-			var joypad_motion_event := event as InputEventJoypadMotion
-			if joypad_motion_event != null and joypad_axis == -1:
-				joypad_axis = joypad_motion_event.axis
-				joypad_axis_value = joypad_motion_event.axis_value
-				joypad_id = joypad_motion_event.device
+					if key_event.meta_pressed:
+						modifiers.append(KEY_META)
+
+					if key_event.keycode == 0:
+						keyboard = key_event.physical_keycode
+					else:
+						keyboard = key_event.keycode
+
+			if mouse == -1:
+				var mouse_button_event := event as InputEventMouseButton
+				if mouse_button_event != null:
+					mouse = mouse_button_event.button_index
+
+			if joypad == -1:
+				var joypad_button_event := event as InputEventJoypadButton
+				if joypad_button_event != null:
+					joypad = joypad_button_event.button_index
+					joypad_id = joypad_button_event.device
+
+			if joypad_axis == -1:
+				var joypad_motion_event := event as InputEventJoypadMotion
+				if joypad_motion_event != null:
+					joypad_axis = joypad_motion_event.axis
+					joypad_axis_value = joypad_motion_event.axis_value
+					joypad_id = joypad_motion_event.device
 
 		if is_joypad:
 			if joypad >= 0:
@@ -122,11 +139,20 @@ func pick_texture(action_name:String, joypad_mode:JoypadMode, joypad_model:Joypa
 
 			if result == null and keyboard >= 0:
 				result = get_keyboard(keyboard)
+				if result != null:
+					var result_array:Array[Texture2D] = []
+					for modifier in modifiers:
+						var modifier_texture := get_keyboard(modifier)
+						if modifier_texture != null:
+							result_array.append(modifier_texture)
+
+					result_array.append(result)
+					return result_array
 
 	if result == null:
 		result = load(_base_path + "/Keyboard/Blank.png") as Texture2D
 
-	return result
+	return [result]
 
 
 func get_keyboard(key: int) -> Texture2D:
