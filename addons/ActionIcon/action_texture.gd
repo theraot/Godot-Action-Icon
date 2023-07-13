@@ -47,13 +47,12 @@ var favor_mouse: bool = true:
 		refresh()
 
 
-var _image:Image
 var _action_texture_picker:ActionTexturePicker
 
 
 func _init() -> void:
 	var base_path := preload("plugin.gd").base_path
-	_set_textures([load(base_path + "/Keyboard/Blank.png") as Texture2D])
+	_set_textures([load(base_path + "/Keyboard/Blank.png") as Texture2D], false)
 	_action_texture_picker = ActionTexturePicker.instance as ActionTexturePicker
 	_update_adaptive_connection()
 	refresh()
@@ -102,34 +101,48 @@ func _get_property_list() -> Array[Dictionary]:
 func refresh() -> void:
 	if is_instance_valid(_action_texture_picker):
 		var textures := _action_texture_picker.pick_texture(action_name, joypad_mode, joypad_model, favor_mouse)
-		_set_textures(textures)
+		_set_textures(textures, false)
 
 
-func _set_textures(textures:Array[Texture2D]) -> void:
+func refresh_keep_aspect() -> void:
+	if is_instance_valid(_action_texture_picker):
+		var textures := _action_texture_picker.pick_texture(action_name, joypad_mode, joypad_model, favor_mouse)
+		_set_textures(textures, true)
+
+
+func _set_textures(textures:Array[Texture2D], keep_aspect:bool) -> void:
 	var size := Vector2i.ZERO
 	for texture in textures:
 		var texture_size := texture.get_size()
 		size.x += int(texture_size.x)
 		size.y = maxi(size.y, int(texture_size.y))
 
-	if _image == null:
-		_image = Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
-	elif _image.get_size() != size:
-		_image.crop(size.x, size.y)
+	var valign := 0
+	if keep_aspect:
+		var target_aspect := get_size().aspect()
+		var new_x := int(target_aspect * size.y)
+		if new_x < size.x:
+			var scale_factor := size.x / float(new_x)
+			valign = int(size.y * (scale_factor - 1.0) * 0.5)
+			size.y = int(size.y * scale_factor)
+		else:
+			size.x = new_x
 
-	var offset := Vector2i.ZERO
+	var image = Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
+	var offset := Vector2i(0, valign)
 	for texture in textures:
 		var texture_size := texture.get_size()
 		var rect := Rect2i(Vector2i.ZERO, texture_size)
-		_image.blit_rect(texture.get_image(), rect, offset)
+		image.blit_rect(texture.get_image(), rect, offset)
 		offset += Vector2i(int(texture_size.x), 0)
 
-	set_image(_image)
+	set_image(image)
+
 
 func _update_adaptive_connection() -> void:
 	if joypad_mode == ActionTexturePicker.JoypadMode.ADAPTIVE:
-		if not _action_texture_picker.refresh.is_connected(refresh):
-			_action_texture_picker.refresh.connect(refresh)
+		if not _action_texture_picker.refresh.is_connected(refresh_keep_aspect):
+			_action_texture_picker.refresh.connect(refresh_keep_aspect)
 	else:
-		if _action_texture_picker.refresh.is_connected(refresh):
-			_action_texture_picker.refresh.disconnect(refresh)
+		if _action_texture_picker.refresh.is_connected(refresh_keep_aspect):
+			_action_texture_picker.refresh.disconnect(refresh_keep_aspect)
