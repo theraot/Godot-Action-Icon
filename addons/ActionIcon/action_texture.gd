@@ -23,13 +23,7 @@ var joypad_mode: ActionTexturePicker.JoypadMode = ActionTexturePicker.JoypadMode
 			return
 		
 		joypad_mode = mod_value
-		if joypad_mode == ActionTexturePicker.JoypadMode.ADAPTIVE:
-			if not _action_texture_picker.refresh.is_connected(refresh):
-				_action_texture_picker.refresh.connect(refresh)
-		else:
-			if _action_texture_picker.refresh.is_connected(refresh):
-				_action_texture_picker.refresh.disconnect(refresh)
-
+		_update_adaptive_connection()
 		refresh()
 
 
@@ -61,6 +55,7 @@ func _init() -> void:
 	var base_path := preload("plugin.gd").base_path
 	_set_textures([load(base_path + "/Keyboard/Blank.png") as Texture2D])
 	_action_texture_picker = ActionTexturePicker.instance as ActionTexturePicker
+	_update_adaptive_connection()
 	refresh()
 
 
@@ -130,3 +125,11 @@ func _set_textures(textures:Array[Texture2D]) -> void:
 		offset += Vector2i(int(texture_size.x), 0)
 
 	set_image(_image)
+
+func _update_adaptive_connection() -> void:
+	if joypad_mode == ActionTexturePicker.JoypadMode.ADAPTIVE:
+		if not _action_texture_picker.refresh.is_connected(refresh):
+			_action_texture_picker.refresh.connect(refresh)
+	else:
+		if _action_texture_picker.refresh.is_connected(refresh):
+			_action_texture_picker.refresh.disconnect(refresh)
