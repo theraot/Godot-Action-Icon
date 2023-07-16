@@ -6,6 +6,10 @@ extends ImageTexture
 const ActionTexturePicker := preload("action_texture_picker.gd")
 
 
+enum JoypadMode { ADAPTIVE, FORCE_KEYBOARD, FORCE_JOYPAD }
+enum JoypadModel { AUTO, XBOX, XBOX360, DS3, DS4, DUAL_SENSE, JOY_CON }
+
+
 ## Action name from InputMap.
 var action_name: StringName = &"":
 	set(mod_value):
@@ -17,7 +21,7 @@ var action_name: StringName = &"":
 
 
 ## Whether a joypad button should be used or keyboard/mouse.
-var joypad_mode: ActionTexturePicker.JoypadMode = ActionTexturePicker.JoypadMode.ADAPTIVE:
+var joypad_mode: JoypadMode = JoypadMode.ADAPTIVE:
 	set(mod_value):
 		if joypad_mode == mod_value:
 			return
@@ -28,7 +32,7 @@ var joypad_mode: ActionTexturePicker.JoypadMode = ActionTexturePicker.JoypadMode
 
 
 ## Controller model for the displayed icon.
-var joypad_model: ActionTexturePicker.JoypadModel = ActionTexturePicker.JoypadModel.AUTO:
+var joypad_model: JoypadModel = JoypadModel.AUTO:
 	set(mod_value):
 		if joypad_model == mod_value:
 			return
@@ -140,7 +144,7 @@ func _set_textures(textures:Array[Texture2D], keep_aspect:bool) -> void:
 
 
 func _update_adaptive_connection() -> void:
-	if joypad_mode == ActionTexturePicker.JoypadMode.ADAPTIVE:
+	if joypad_mode == JoypadMode.ADAPTIVE:
 		if not _action_texture_picker.refresh.is_connected(refresh_keep_aspect):
 			_action_texture_picker.refresh.connect(refresh_keep_aspect)
 	else:

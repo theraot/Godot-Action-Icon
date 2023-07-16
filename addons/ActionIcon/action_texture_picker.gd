@@ -12,18 +12,16 @@ const CUSTOM_ACTIONS = {
 
 
 const MODEL_MAP = {
-	JoypadModel.XBOX: "Xbox",
-	JoypadModel.XBOX360: "Xbox360",
-	JoypadModel.DS3: "DS3",
-	JoypadModel.DS4: "DS4",
-	JoypadModel.DUAL_SENSE: "DualSense",
-	JoypadModel.JOY_CON: "JoyCon",
+	ActionTexture.JoypadModel.XBOX: "Xbox",
+	ActionTexture.JoypadModel.XBOX360: "Xbox360",
+	ActionTexture.JoypadModel.DS3: "DS3",
+	ActionTexture.JoypadModel.DS4: "DS4",
+	ActionTexture.JoypadModel.DUAL_SENSE: "DualSense",
+	ActionTexture.JoypadModel.JOY_CON: "JoyCon",
 }
 
 
 enum { KEYBOARD, MOUSE, JOYPAD }
-enum JoypadMode { ADAPTIVE, FORCE_KEYBOARD, FORCE_JOYPAD }
-enum JoypadModel { AUTO, XBOX, XBOX360, DS3, DS4, DUAL_SENSE, JOY_CON }
 
 
 var _cached_model:String
@@ -56,19 +54,19 @@ func on_joy_connection_changed(_device: int, connected: bool):
 		refresh.emit()
 
 
-func pick_texture(action_name:String, joypad_mode:JoypadMode, joypad_model:JoypadModel, favor_mouse:bool) -> Array[Texture2D]:
+func pick_texture(action_name:String, joypad_mode:ActionTexture.JoypadMode, joypad_model:ActionTexture.JoypadModel, favor_mouse:bool) -> Array[Texture2D]:
 	var is_joypad := false
 	match joypad_mode:
-		JoypadMode.ADAPTIVE:
+		ActionTexture.JoypadMode.ADAPTIVE:
 			is_joypad = _use_joypad
-		JoypadMode.FORCE_JOYPAD:
+		ActionTexture.JoypadMode.FORCE_JOYPAD:
 			is_joypad = true
-		JoypadMode.FORCE_KEYBOARD:
+		ActionTexture.JoypadMode.FORCE_KEYBOARD:
 			is_joypad = false
 
 	var result:Texture2D = null
 	if action_name in CUSTOM_ACTIONS:
-		var image_list: PackedStringArray = CUSTOM_ACTIONS[action_name].split("|")
+		var image_list: PackedStringArray = str(CUSTOM_ACTIONS[action_name]).split("|")
 		assert(image_list.size() >= 3, "Need more |")
 		
 		if is_joypad and not image_list[JOYPAD].is_empty():
@@ -133,7 +131,7 @@ func pick_texture(action_name:String, joypad_mode:JoypadMode, joypad_model:Joypa
 			elif joypad_axis >= 0:
 				result = get_joypad_axis(joypad_axis, joypad_axis_value, joypad_id, joypad_model)
 
-		if result == null and joypad_mode != JoypadMode.FORCE_JOYPAD:
+		if result == null and joypad_mode != ActionTexture.JoypadMode.FORCE_JOYPAD:
 			if mouse >= 0 and (favor_mouse or keyboard < 0):
 				result = get_mouse(mouse)
 
@@ -321,12 +319,12 @@ func get_keyboard(key: int) -> Texture2D:
 	return null
 
 
-func get_joypad_model_name(device: int, joypad_model:JoypadModel) -> String:
+func get_joypad_model_name(device: int, joypad_model:ActionTexture.JoypadModel) -> String:
 	if not _cached_model.is_empty():
 		return _cached_model
 
 	var model := ""
-	if joypad_model == JoypadModel.AUTO:
+	if joypad_model == ActionTexture.JoypadModel.AUTO:
 		var device_name := Input.get_joy_name(maxi(device, 0))
 		if device_name.contains("Xbox 360"):
 			model = "Xbox360"
@@ -347,7 +345,7 @@ func get_joypad_model_name(device: int, joypad_model:JoypadModel) -> String:
 	return model
 
 
-func get_joypad(button: int, device: int, joypad_model:JoypadModel) -> Texture2D:
+func get_joypad(button: int, device: int, joypad_model:ActionTexture.JoypadModel) -> Texture2D:
 	var folder := get_joypad_model_name(device, joypad_model) + "/"
 
 	match button:
@@ -385,7 +383,7 @@ func get_joypad(button: int, device: int, joypad_model:JoypadModel) -> Texture2D
 	return null
 
 
-func get_joypad_axis(axis: int, value: float, device: int, joypad_model:JoypadModel) -> Texture2D:
+func get_joypad_axis(axis: int, value: float, device: int, joypad_model:ActionTexture.JoypadModel) -> Texture2D:
 	var folder := get_joypad_model_name(device, joypad_model) + "/"
 
 	match axis:
