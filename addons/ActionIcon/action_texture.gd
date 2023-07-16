@@ -51,6 +51,15 @@ var favor_mouse: bool = true:
 		refresh()
 
 
+var size:Vector2i:
+	set(mod_value):
+		if size == mod_value:
+			return
+
+		size = mod_value
+		refresh()
+
+
 var _action_texture_picker:ActionTexturePicker
 
 
@@ -96,7 +105,11 @@ func _get_property_list() -> Array[Dictionary]:
 		{
 			"name": "favor_mouse",
 			"type": TYPE_BOOL,
-			"hint_string": "bool",
+			"usage": PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_STORAGE
+		},
+		{
+			"name": "size",
+			"type": TYPE_VECTOR2I,
 			"usage": PROPERTY_USAGE_SCRIPT_VARIABLE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_STORAGE
 		}
 	]
@@ -115,30 +128,39 @@ func refresh_keep_aspect() -> void:
 
 
 func _set_textures(textures:Array[Texture2D], keep_aspect:bool) -> void:
-	var size := Vector2i.ZERO
+	var render_size := Vector2i.ZERO
 	for texture in textures:
 		var texture_size := texture.get_size()
-		size.x += int(texture_size.x)
-		size.y = maxi(size.y, int(texture_size.y))
+		render_size.x += int(texture_size.x)
+		render_size.y = maxi(render_size.y, int(texture_size.y))
 
 	var valign := 0
 	if keep_aspect:
 		var target_aspect := get_size().aspect()
-		var new_x := int(target_aspect * size.y)
-		if new_x < size.x:
-			var scale_factor := size.x / float(new_x)
-			valign = int(size.y * (scale_factor - 1.0) * 0.5)
-			size.y = int(size.y * scale_factor)
+		var new_x := int(target_aspect * render_size.y)
+		if new_x < render_size.x:
+			var scale_factor := render_size.x / float(new_x)
+			valign = int(render_size.y * (scale_factor - 1.0) * 0.5)
+			render_size.y = int(render_size.y * scale_factor)
 		else:
-			size.x = new_x
+			render_size.x = new_x
 
-	var image = Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
+	var image := Image.create(render_size.x, render_size.y, false, Image.FORMAT_RGBA8)
 	var offset := Vector2i(0, valign)
 	for texture in textures:
 		var texture_size := texture.get_size()
 		var rect := Rect2i(Vector2i.ZERO, texture_size)
 		image.blit_rect(texture.get_image(), rect, offset)
 		offset += Vector2i(int(texture_size.x), 0)
+
+	if size.x != 0 and size.y != 0 and size != render_size:
+		image.resize(size.x, size.y)
+	elif size.x == 0 and size.y != 0 and size.y != render_size.y:
+		var size_x := ceili(render_size.x * float(size.y) / float(render_size.y))
+		image.resize(size_x, size.y)
+	elif size.y == 0 and size.x != 0 and size.x != render_size.x:
+		var size_y := ceili(render_size.y * float(size.x) / float(render_size.x))
+		image.resize(size.x, size_y)
 
 	set_image(image)
 
