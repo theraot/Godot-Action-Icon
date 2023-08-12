@@ -7,7 +7,8 @@ signal refresh()
 
 ## Use for special actions outside of InputMap. Format is keyboard icon|mouse icon|joypad icon.
 const CUSTOM_ACTIONS = {
-	"move": "WSAD||LeftStick"
+	"custom_move": "WASD||LeftStick",
+	"custom_look": "|Move|RightStick"
 }
 
 
